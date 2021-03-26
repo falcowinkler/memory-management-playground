@@ -10,7 +10,7 @@ class NetworkService {
     let foo = "foo"
     func loadData() {
         DispatchQueue.main.asyncAfter(deadline: DispatchTime.now() + 2) {
-            print("Wohoo completed the network request.")
+            print("Wohoo NetworkService completed the network request.")
             print("This is my favorite value: \(self.foo)")
         }
     }
@@ -23,10 +23,10 @@ class NetworkService {
 /* As we can see in the following, the service get's deallocated *as soon as the closure completes*.
  * Why is that? shouldn't it be thrown out right away?
  */
-
+/*
 var networkService: NetworkService? = NetworkService()
 networkService?.loadData()
-networkService = nil
+networkService = nil*/
 
 /* It's because of Automatic reference counting. Swift only deinitializes a reference type once all references to it are gone
  * The closure /closes over/ self, thus keeping a reference to the instance of NetworkService.
@@ -49,7 +49,7 @@ class NetworkService2 {
     let foo = "foo"
     func loadData() {
         myCompletionHandler = {
-            print("Wohoo completed the network request.")
+            print("Wohoo NetworkService2 completed the network request.")
             print("This is my favorite value: \(self.foo)")
             print("----------------------------------------------------------------------------")
         }
@@ -59,10 +59,11 @@ class NetworkService2 {
         print("I am the network service 2 and i just got deinitialized")
     }
 }
+
 // UNCOMMENT THIS
-/* var networkService2: NetworkService2? = NetworkService2()
+ /*var networkService2: NetworkService2? = NetworkService2()
  networkService2?.loadData()
- networkService2 = nil */
+ networkService2 = nil*/
 
 /*
  * Oh no! the deinitializer was never called!
@@ -80,7 +81,7 @@ class NetworkService3 {
     func loadData() {
         myCompletionHandler = { [weak self] in
             guard let `self` = self else { return }
-            print("Wohoo completed the network request.")
+            print("Wohoo NetworkService3 completed the network request.")
             print("This is my favorite value: \(self.foo)")
         }
         DispatchQueue.main.asyncAfter(deadline: DispatchTime.now() + 2, execute: myCompletionHandler!)
@@ -108,7 +109,7 @@ class NetworkService3 {
 /*
  * To summarize:
  * - Check if your closure captures a reference that introduces a reference cycle (see bonus content for another example), if so, break the cycle and use weak self, or refactor the code.
- * - If your closure should be aborted, as soon as the references held in the closure get removed (usually that's just self), use weak self
+ * - If your closure should be aborted, as soon as the references held in the closure get removed (usually that's just self), use weak self and a guard on the optional self.
  * - in all other cases, don't use it! It is unnecessarry and confuses the programmer that knows about `weak self`.
  */
 
@@ -129,7 +130,7 @@ class AppleSauceService {
     func retryLast() {
         lastExecutedWork!()
     }
-    // Notice how stored closures are automatically escaping.
+    // Escaping = can be called after the function exits
     func execute(work: @escaping (() -> Void)) {
         self.lastExecutedWork = work
         work()
@@ -147,7 +148,7 @@ class NetworkService4 {
     let appleSauceService = AppleSauceService()
     func loadData() {
         let aCompletionHandler = {
-            print("Wohoo completed the network request.")
+            print("Wohoo NetworkService4 completed the network request.")
             print("Now i can make apple sauce with \(self.foo)")
             print("----------------------------------------------------------")
         }
@@ -162,4 +163,78 @@ class NetworkService4 {
  var networkService4: NetworkService4? = NetworkService4()
  networkService4?.loadData()
  networkService4 = nil
+ */
+
+
+/* BONUS: Unowned self
+* Let's revisit the second example (NetworkService3)
+* What happens if we use unowned instead of weak?
+*/
+
+class NetworkService5 {
+    var myCompletionHandler: (() -> Void)?
+    let foo = "foo"
+    func loadData() {
+        myCompletionHandler = { [unowned self] in
+            print("Wohoo NetworkService5 completed the network request.")
+            print("This is my favorite value: \(self.foo)") // Doesn't get executed! (Because it crashes, though that's not visible in playgrounds i guess)
+        }
+        DispatchQueue.main.asyncAfter(deadline: DispatchTime.now() + 2, execute: myCompletionHandler!)
+    }
+    deinit {
+        print("I am the network service 5 and i just got deinitialized")
+        print("-----------------------------------------------------------------------------")
+    }
+}
+
+// UNCOMMENT THIS
+/*var networkService5: NetworkService5? = NetworkService5()
+networkService5?.loadData()
+networkService5 = nil */
+
+// We can see again clearly that closures can survive the lifetime of the object they are allocated in, if they are passed to a dispatch queue for example. In this case we need to be careful. But where does unowned make sense then?
+
+class WaterBottleService {
+    var fillUp: ((Int) -> Void)?
+    private var milliliters: Int = 0
+    init() {
+        fillUp = { [unowned self] newMilliliters in
+            self.milliliters += newMilliliters
+        }
+    }
+}
+
+var waterBottleService: WaterBottleService? = WaterBottleService()
+waterBottleService!.fillUp?(123)
+waterBottleService = nil
+
+
+// BONUS
+// You can also capture other things except self with weak or unowned references.
+
+class MyDelegate {
+    func didSomething() {}
+}
+class WaterBottleService2 {
+    var doSomething: (() -> Void)?
+    var delegate = MyDelegate()
+    init() {
+        doSomething = { [weak waterBottleDelegate = self.delegate] in
+            waterBottleDelegate?.didSomething()
+        }
+    }
+}
+
+var waterBottleService2: WaterBottleService2? = WaterBottleService2()
+waterBottleService2?.doSomething!()
+waterBottleService2 = nil
+
+
+/* The point of it all -------------------------------
+Please understand that
+ - closures are reference types and can create strong reference cycles
+ - Use weak and unowned just as you would with class members (essentially that's the same thing)
+ - Don't use weak self all the time, just as you don't use weak self whenever you declare members in classes ;)
+       Instead, it makes the code clearer to understand exactly the lifecycle of a closure and when which dependency get's deallocated
+ - DRAW out the dependency graph if you are unsure!
  */
