@@ -225,9 +225,9 @@ class WaterBottleService2 {
     }
 }
 
-var waterBottleService2: WaterBottleService2? = WaterBottleService2()
+/*var waterBottleService2: WaterBottleService2? = WaterBottleService2()
 waterBottleService2?.doSomething!()
-waterBottleService2 = nil
+waterBottleService2 = nil*/
 
 
 /* The point of it all -------------------------------
