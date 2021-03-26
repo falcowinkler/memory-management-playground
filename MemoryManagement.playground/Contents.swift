@@ -237,4 +237,33 @@ Please understand that
  - Don't use weak self all the time, just as you don't use weak self whenever you declare members in classes ;)
        Instead, it makes the code clearer to understand exactly the lifecycle of a closure and when which dependency get's deallocated
  - DRAW out the dependency graph if you are unsure!
+ - Use structs for more safety (structs are value types!)
  */
+
+// Extra super bonus
+// To understand why structs can not contain these kinds of strong reference cycles, you can try to reproduce above example with a struct
+
+/*
+struct NetworkService999 {
+    var myCompletionHandler: (() -> Void)?
+    let foo = "foo"
+    func loadData() {
+        myCompletionHandler = {
+            print("Wohoo NetworkService2 completed the network request.")
+            print("This is my favorite value: \(self.foo)")
+            print("----------------------------------------------------------------------------")
+        }
+        DispatchQueue.main.asyncAfter(deadline: DispatchTime.now() + 2, execute: myCompletionHandler!)
+    }
+
+ // structs don't even have a deinitializer! Because the don't get de-initialized. They are value types.
+    deinit {
+        print("I am the network service 2 and i just got deinitialized")
+    }
+}
+
+ */
+
+// Super mega bonus: Additional reading
+// https://www.avanderlee.com/swift/weak-self/
+// https://docs.swift.org/swift-book/LanguageGuide/AutomaticReferenceCounting.html
